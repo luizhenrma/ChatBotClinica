@@ -17,3 +17,15 @@ node chatbot.js
 ```
 
 Abra `http://localhost:3000/conectar` no navegador para visualizar o QR Code. O mesmo código continua sendo exibido no terminal. Para usar outra porta, defina a variável `PORT` antes de iniciar o bot.
+
+Para enviar uma mensagem pela API, o WhatsApp precisa estar conectado:
+
+`/mensagem` não deve ser aberto diretamente no navegador, pois o navegador faz uma requisição `GET`. Use uma ferramenta que permita enviar `POST`, como `curl`, Postman ou Insomnia.
+
+```bash
+curl -X POST http://localhost:3000/mensagem \
+	-H "Content-Type: application/json" \
+	-d '{"destinatario":"556191018101","mensagem":"Chego em casa umas 12:30"}'
+```
+
+O campo `destinatario` deve conter o número com código do país, somente números. O sistema normaliza o número e confirma se ele possui uma conta WhatsApp antes do envio.

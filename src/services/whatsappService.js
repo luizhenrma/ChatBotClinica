@@ -83,20 +83,14 @@ class WhatsappService {
 
   async handleMessage(message) {
     try {
-      if (!message.from || message.from.endsWith("@g.us")) return;
-
-      const chat = await message.getChat();
-      if (chat.isGroup) return;
+      if (!message.from
+        || message.from.endsWith("@g.us")
+        || message.from === "status@broadcast") return;
 
       const text = message.body ? message.body.trim().toLowerCase() : "";
-      const typing = async () => {
-        await chat.sendStateTyping();
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      };
 
       if (!/^(menu|Oi|oi|Olá|olá|Ola|ola|Bom dia|bom dia|Boa tarde|boa tarde|Boa noite|boa noite|ADS|ads|inscrever|curso|inscrição|inscricao|ifb|IFB)$/i.test(text)) return;
 
-      await typing();
       const hour = new Date().getHours();
       let greeting = "Olá";
       if (hour >= 5 && hour < 12) greeting = "Bom dia";
@@ -106,10 +100,7 @@ class WhatsappService {
       await this.client.sendMessage(
         message.from,
         `${greeting}! 👋\n\n` +
-        "Sou o Robinho 🤓, o assistente virtual do IFB e estou aqui para te ajudar. \n\n" +
-        "Infelizmente o processo seletivo de 2026 para o *Curso de Tecnologia em Análise e Desenvolvimento de Sistemas* foi encerrado. 💻\n\n" +
-        "Aguardamos sua inscrição no processo de 2027. Fique ligado no portal do IFB em novembro deste ano para não perder os prazos. 📆\n\n" +
-        " Se tiver dúvidas, é só perguntar!"
+        ""
       );
     } catch (error) {
       console.error("❌ Erro no processamento da mensagem:", error);
@@ -124,6 +115,33 @@ class WhatsappService {
       console.error("❌ Erro ao inicializar:", error.message);
       throw error;
     }
+  }
+
+  async sendMessage(recipient, message) {
+    if (!this.connectionModel.isConnected()) {
+      const error = new Error("WhatsApp não está conectado.");
+      error.code = "WHATSAPP_NOT_CONNECTED";
+      throw error;
+    }
+
+    const recipientId = await this.resolveRecipient(recipient);
+    return this.client.sendMessage(recipientId, message);
+  }
+
+  async resolveRecipient(recipient) {
+    const value = recipient.trim();
+    const phoneNumber = value.endsWith("@c.us")
+      ? value.slice(0, -5)
+      : value;
+    const normalizedNumber = phoneNumber.replace(/\D/g, "");
+
+    if (!/^\d{8,15}$/.test(normalizedNumber)) {
+      const error = new Error("Destinatário inválido. Informe o número com DDI, somente números.");
+      error.code = "INVALID_RECIPIENT";
+      throw error;
+    }
+
+    return `${normalizedNumber}@c.us`;
   }
 }
 

@@ -3,8 +3,8 @@ const ConnectionController = require("./controllers/connectionController");
 const WhatsappService = require("./services/whatsappService");
 
 const connectionModel = new ConnectionModel();
-const connectionController = new ConnectionController(connectionModel);
 const whatsappService = new WhatsappService(connectionModel);
+const connectionController = new ConnectionController(connectionModel, whatsappService);
 
 connectionController.start();
 

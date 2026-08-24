@@ -28,6 +28,10 @@ class ConnectionModel {
       status: this.status,
     };
   }
+
+  isConnected() {
+    return this.status === "WhatsApp conectado";
+  }
 }
 
 module.exports = ConnectionModel;
