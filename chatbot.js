@@ -2,9 +2,64 @@
 // IMPORTAÇÕES
 // =====================================
 const qrcode = require("qrcode-terminal");
+const qrcodeImage = require("qrcode");
 const { Client, MessageMedia, LocalAuth } = require("whatsapp-web.js");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+
+const PORT = process.env.PORT || 3000;
+let currentQrCode = null;
+let connectionStatus = "Aguardando QR Code";
+
+const renderConnectionPage = () => {
+  const qrContent = currentQrCode
+    ? `<img src="${currentQrCode}" alt="QR Code para conectar ao WhatsApp" />`
+    : `<div class="status">${connectionStatus}</div>`;
+
+  return `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="refresh" content="3" />
+    <title>Conectar WhatsApp</title>
+    <style>
+      :root { color-scheme: light; font-family: Arial, sans-serif; }
+      body { display: grid; min-height: 100vh; margin: 0; place-items: center; background: #f3f7f5; color: #17352b; }
+      main { width: min(90vw, 420px); padding: 32px; box-sizing: border-box; text-align: center; background: #fff; border: 1px solid #d6e4dd; border-radius: 12px; box-shadow: 0 8px 30px #17352b18; }
+      h1 { margin: 0 0 10px; font-size: 1.6rem; }
+      p { margin: 0 0 24px; color: #557066; }
+      img { display: block; width: min(100%, 320px); height: auto; margin: auto; }
+      .status { padding: 24px 8px; font-weight: 600; }
+      small { display: block; margin-top: 20px; color: #71877e; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Conectar WhatsApp</h1>
+      <p>Abra o WhatsApp no celular e escaneie o código abaixo.</p>
+      ${qrContent}
+      <small>A página atualiza automaticamente.</small>
+    </main>
+  </body>
+</html>`;
+};
+
+const server = http.createServer((request, response) => {
+  if (request.url === "/conectar") {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end(renderConnectionPage());
+    return;
+  }
+
+  response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+  response.end("Página não encontrada.");
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`🌐 Página de conexão disponível em http://localhost:${PORT}/conectar`);
+});
 
 // =====================================
 // LIMPEZA DE CACHE ANTERIOR
@@ -66,18 +121,27 @@ const client = new Client({
 // =====================================
 // QR CODE
 // =====================================
-client.on("qr", (qr) => {
+client.on("qr", async (qr) => {
   console.clear();
   const now = new Date();
   console.log("📲 QR Code gerado em:", formatDate(now));
   console.log("📲 Escaneie o QR Code abaixo:");
   qrcode.generate(qr, { small: true });
+
+  connectionStatus = "QR Code disponível";
+  try {
+    currentQrCode = await qrcodeImage.toDataURL(qr, { width: 320, margin: 2 });
+  } catch (error) {
+    console.error("❌ Erro ao gerar QR Code para a página:", error.message);
+  }
 });
 
 // =====================================
 // WHATSAPP CONECTADO
 // =====================================
 client.on("ready", () => {
+  currentQrCode = null;
+  connectionStatus = "WhatsApp conectado";
   connectionStart = new Date();
   console.log("✅ Tudo certo! WhatsApp conectado.");
   console.log("🔌 Conexão iniciada em:", formatDate(connectionStart));
@@ -88,6 +152,8 @@ client.on("ready", () => {
 // DESCONEXÃO
 // =====================================
 client.on("disconnected", (reason) => {
+  currentQrCode = null;
+  connectionStatus = "Aguardando novo QR Code";
   const end = new Date();
   let durationStr = 'desconhecido';
   if (connectionStart) {
