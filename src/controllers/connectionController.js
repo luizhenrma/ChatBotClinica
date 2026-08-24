@@ -86,6 +86,14 @@ class ConnectionController {
 
   start() {
     this.server = http.createServer(this.handleRequest.bind(this));
+    this.server.on("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(`❌ A porta ${this.port} já está em uso. Encerre o processo anterior ou use PORT=outra_porta.`);
+      } else {
+        console.error("❌ Erro no servidor HTTP:", error.message);
+      }
+      process.exitCode = 1;
+    });
     this.server.listen(this.port, "0.0.0.0", () => {
       console.log(`🌐 Página de conexão disponível em http://localhost:${this.port}/conectar`);
     });
