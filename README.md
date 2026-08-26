@@ -29,3 +29,11 @@ curl -X POST http://localhost:3000/mensagem \
 ```
 
 O campo `destinatario` deve conter o número com código do país, somente números. O sistema normaliza o número e confirma se ele possui uma conta WhatsApp antes do envio.
+
+Mensagens recebidas no grupo `ChatBotClinica` são armazenadas em `data/messages.sqlite` com status `pendente`. Para consultar as operações pendentes, use:
+
+```bash
+curl http://localhost:3000/operacoes
+```
+
+Após a consulta, os registros retornados recebem status `enviado` e não aparecem em consultas posteriores.

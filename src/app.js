@@ -1,9 +1,11 @@
 const ConnectionModel = require("./models/connectionModel");
+const MessageModel = require("./models/messageModel");
 const ConnectionController = require("./controllers/connectionController");
 const WhatsappService = require("./services/whatsappService");
 
 const connectionModel = new ConnectionModel();
-const whatsappService = new WhatsappService(connectionModel);
+const messageModel = new MessageModel();
+const whatsappService = new WhatsappService(connectionModel, messageModel);
 const connectionController = new ConnectionController(connectionModel, whatsappService);
 
 connectionController.start();

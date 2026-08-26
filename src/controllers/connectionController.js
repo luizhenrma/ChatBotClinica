@@ -22,6 +22,17 @@ class ConnectionController {
       return;
     }
 
+    if (request.method === "GET" && requestPath === "/operacoes") {
+      try {
+        const operations = await this.whatsappService.getPendingOperations();
+        this.sendJson(response, 200, operations);
+      } catch (error) {
+        console.error("❌ Erro ao consultar operações:", error);
+        this.sendJson(response, 500, { erro: "Não foi possível consultar as operações." });
+      }
+      return;
+    }
+
     if (request.method === "POST" && requestPath === "/mensagem") {
       let body = "";
       for await (const chunk of request) {

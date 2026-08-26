@@ -6,8 +6,9 @@ const path = require("path");
 const { formatDate, formatDuration } = require("../utils/formatters");
 
 class WhatsappService {
-  constructor(connectionModel) {
+  constructor(connectionModel, messageModel) {
     this.connectionModel = connectionModel;
+    this.messageModel = messageModel;
     this.connectionStart = null;
     this.client = new Client({
       authStrategy: new LocalAuth(),
@@ -83,9 +84,20 @@ class WhatsappService {
 
   async handleMessage(message) {
     try {
-      if (!message.from
+      /*if (!message.from
         || message.from.endsWith("@g.us")
-        || message.from === "status@broadcast") return;
+        || message.from === "status@broadcast") return;*/
+      if (message.from.endsWith("@g.us")) return;
+      if (!message.from || message.from === "status@broadcast") return;
+
+      const chat = await message.getChat();
+      if (chat.isGroup && chat.name === "ChatBotClinica") {
+        const messageData = typeof message.serialize === "function"
+          ? message.serialize()
+          : message;
+        this.messageModel.save(message, chat.name, this.serializeSafely(messageData));
+        return;
+      }
 
       const text = message.body ? message.body.trim().toLowerCase() : "";
 
@@ -99,12 +111,28 @@ class WhatsappService {
 
       await this.client.sendMessage(
         message.from,
-        `${greeting}! 👋\n\n` +
+        `${greeting}! 👋` +
         ""
       );
     } catch (error) {
       console.error("❌ Erro no processamento da mensagem:", error);
     }
+  }
+
+  serializeSafely(value) {
+    const seen = new WeakSet();
+    return JSON.parse(JSON.stringify(value, (key, item) => {
+      if (typeof item === "bigint") return item.toString();
+      if (typeof item === "object" && item !== null) {
+        if (seen.has(item)) return "[Circular]";
+        seen.add(item);
+      }
+      return item;
+    }));
+  }
+
+  getPendingOperations() {
+    return this.messageModel.getPendingAndMarkAsSent();
   }
 
   async start() {
