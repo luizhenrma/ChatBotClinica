@@ -6,6 +6,8 @@ const path = require("path");
 const { formatDate, formatDuration } = require("../utils/formatters");
 
 class WhatsappService {
+  static TARGET_GROUP_ID = "120363428793135401@g.us";
+
   constructor(connectionModel, messageModel) {
     this.connectionModel = connectionModel;
     this.messageModel = messageModel;
@@ -84,24 +86,49 @@ class WhatsappService {
 
   async handleMessage(message) {
     try {
-      /*if (!message.from
-        || message.from.endsWith("@g.us")
-        || message.from === "status@broadcast") return;*/
-      if (message.from.endsWith("@g.us")) return;
-      if (!message.from || message.from === "status@broadcast") return;
+      console.log("📩 Mensagem recebida:", {
+        from: message && message.from,
+        to: message && message.to,
+        type: message && message.type,
+        body: message && message.body,
+      });
 
-      const chat = await message.getChat();
-      if (chat.isGroup && chat.name === "ChatBotClinica") {
-        const messageData = typeof message.serialize === "function"
-          ? message.serialize()
-          : message;
-        this.messageModel.save(message, chat.name, this.serializeSafely(messageData));
+      if (!message || !message.from) {
+        console.log("⚠️ Mensagem ignorada: remetente ausente.");
+        return;
+      }
+
+      if (message.from === "status@broadcast") {
+        console.log("ℹ️ Mensagem de status ignorada.");
+        return;
+      }
+
+      if (message.from.endsWith("@g.us")) {
+        console.log("🔎 Verificando grupo pelo ID:", message.from);
+
+        if (message.from === WhatsappService.TARGET_GROUP_ID) {
+          const messageData = typeof message.serialize === "function"
+            ? message.serialize()
+            : message;
+          console.log("💾 Salvando mensagem do grupo ChatBotClinica...");
+          await this.messageModel.save(
+            message,
+            "ChatBotClinica",
+            this.serializeSafely(messageData),
+          );
+          console.log("✅ Mensagem salva com status pendente.");
+        } else {
+          console.log("ℹ️ Mensagem ignorada: grupo diferente de ChatBotClinica.");
+        }
         return;
       }
 
       const text = message.body ? message.body.trim().toLowerCase() : "";
 
-      if (!/^(menu|Oi|oi|Olá|olá|Ola|ola|Bom dia|bom dia|Boa tarde|boa tarde|Boa noite|boa noite|ADS|ads|inscrever|curso|inscrição|inscricao|ifb|IFB)$/i.test(text)) return;
+      if (!/^(menu|Oi|oi|Olá|olá|Ola|ola|Bom dia|bom dia|Boa tarde|boa tarde|Boa noite|boa noite|ADS|ads|inscrever|curso|inscrição|inscricao|ifb|IFB)$/i.test(text)) {
+        console.log("ℹ️ Mensagem privada ignorada: texto fora do menu.");
+        return;
+      }
 
       const hour = new Date().getHours();
       let greeting = "Olá";
@@ -109,13 +136,19 @@ class WhatsappService {
       else if (hour >= 12 && hour < 18) greeting = "Boa tarde";
       else greeting = "Boa noite";
 
+      console.log("📤 Enviando resposta para:", message.from);
       await this.client.sendMessage(
         message.from,
         `${greeting}! 👋` +
         ""
       );
+      console.log("✅ Resposta enviada.");
     } catch (error) {
-      console.error("❌ Erro no processamento da mensagem:", error);
+      console.error("❌ Erro no processamento da mensagem:", {
+        messageFrom: message && message.from,
+        error: error.message,
+        stack: error.stack,
+      });
     }
   }
 
