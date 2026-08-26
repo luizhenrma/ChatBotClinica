@@ -82,6 +82,25 @@ class WhatsappService {
     });
 
     this.client.on("message", this.handleMessage.bind(this));
+    this.client.on("message_create", this.handleCreatedMessage.bind(this));
+  }
+
+  async handleCreatedMessage(message) {
+    try {
+      if (!message || !message.fromMe || message.from !== WhatsappService.TARGET_GROUP_ID) {
+        return;
+      }
+
+      console.log("📤 Mensagem enviada no grupo ChatBotClinica detectada.");
+      await this.saveGroupMessage(message);
+      console.log("✅ Mensagem enviada salva com status pendente.");
+    } catch (error) {
+      console.error("❌ Erro ao salvar mensagem enviada:", {
+        messageFrom: message && message.from,
+        error: error.message,
+        stack: error.stack,
+      });
+    }
   }
 
   async handleMessage(message) {
@@ -107,15 +126,8 @@ class WhatsappService {
         console.log("🔎 Verificando grupo pelo ID:", message.from);
 
         if (message.from === WhatsappService.TARGET_GROUP_ID) {
-          const messageData = typeof message.serialize === "function"
-            ? message.serialize()
-            : message;
           console.log("💾 Salvando mensagem do grupo ChatBotClinica...");
-          await this.messageModel.save(
-            message,
-            "ChatBotClinica",
-            this.serializeSafely(messageData),
-          );
+          await this.saveGroupMessage(message);
           console.log("✅ Mensagem salva com status pendente.");
         } else {
           console.log("ℹ️ Mensagem ignorada: grupo diferente de ChatBotClinica.");
@@ -150,6 +162,18 @@ class WhatsappService {
         stack: error.stack,
       });
     }
+  }
+
+  async saveGroupMessage(message) {
+    const messageData = typeof message.serialize === "function"
+      ? message.serialize()
+      : message;
+
+    await this.messageModel.save(
+      message,
+      "ChatBotClinica",
+      this.serializeSafely(messageData),
+    );
   }
 
   serializeSafely(value) {
