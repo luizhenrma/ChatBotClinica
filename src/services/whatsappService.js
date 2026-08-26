@@ -6,11 +6,10 @@ const path = require("path");
 const { formatDate, formatDuration } = require("../utils/formatters");
 
 class WhatsappService {
-  static TARGET_GROUP_ID = "120363428793135401@g.us";
-
-  constructor(connectionModel, messageModel) {
+  constructor(connectionModel, messageModel, grupoChatModel) {
     this.connectionModel = connectionModel;
     this.messageModel = messageModel;
+    this.grupoChatModel = grupoChatModel;
     this.connectionStart = null;
     this.client = new Client({
       authStrategy: new LocalAuth(),
@@ -87,11 +86,24 @@ class WhatsappService {
 
   async handleCreatedMessage(message) {
     try {
-      if (!message || !message.fromMe || message.from !== WhatsappService.TARGET_GROUP_ID) {
+      if (!message || !message.fromMe) {
         return;
       }
 
-      console.log("📤 Mensagem enviada no grupo ChatBotClinica detectada.");
+      console.log("# Mensagem enviada detectada:",  message.body);
+
+      const command = message.body ? message.body.trim().toLowerCase() : "";
+      if (command === "configurarchatbot" || command === "/configurarchatbot") {
+        await this.registerGroup(message);
+        return;
+      }
+
+      if (!(await this.isRegisteredGroup(this.getMessageChatId(message)))){
+        console.log("Mensagem enviada em grupo não registrado/configurado. Execute o comando 'configurarchatbot' no grupo para registrar.");
+        return;
+      }
+
+      console.log("📤 Mensagem enviada em grupo registrado detectada.");
       await this.saveGroupMessage(message);
       console.log("✅ Mensagem enviada salva com status pendente.");
     } catch (error) {
@@ -125,8 +137,8 @@ class WhatsappService {
       if (message.from.endsWith("@g.us")) {
         console.log("🔎 Verificando grupo pelo ID:", message.from);
 
-        if (message.from === WhatsappService.TARGET_GROUP_ID) {
-          console.log("💾 Salvando mensagem do grupo ChatBotClinica...");
+        if (await this.isRegisteredGroup(message.from)) {
+          console.log("💾 Salvando mensagem do grupo registrado...");
           await this.saveGroupMessage(message);
           console.log("✅ Mensagem salva com status pendente.");
         } else {
@@ -174,6 +186,43 @@ class WhatsappService {
       "ChatBotClinica",
       this.serializeSafely(messageData),
     );
+  }
+
+  async registerGroup(message) {
+    const chatId = this.getMessageChatId(message);
+
+    if (!chatId) {
+      console.log("ℹ️ Não foi possível identificar o grupo da mensagem.");
+      return;
+    }
+
+    const group = await this.client.getChatById(chatId);
+    if (!group || !group.isGroup) {
+      console.log("ℹ️ Comando ignorado: a conversa não é um grupo.");
+      return;
+    }
+
+    const groupData = typeof group.serialize === "function"
+      ? group.serialize()
+      : group;
+    await this.grupoChatModel.save(group, this.serializeSafely(groupData));
+    console.log(`✅ Grupo cadastrado para o ChatBot: ${group.name || group.id}`);
+  }
+
+  getMessageChatId(message) {
+    if (!message) return null;
+
+    const candidates = message.fromMe
+      ? [message.to, message.id?.remote, message._data?.id?.remote, message.from]
+      : [message.from];
+
+    return candidates.find((candidate) => candidate?.endsWith("@g.us")) || null;
+  }
+
+  async isRegisteredGroup(groupId) {
+    if (!groupId || !groupId.endsWith("@g.us")) return false;
+    const groupIds = await this.grupoChatModel.getIds();
+    return groupIds.includes(groupId);
   }
 
   serializeSafely(value) {
