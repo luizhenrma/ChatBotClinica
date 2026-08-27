@@ -34,12 +34,30 @@ class GrupoChatModel {
     await this.run(`
       CREATE TABLE IF NOT EXISTS "GrupoChat" (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
         group_data TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    const columns = await this.all('PRAGMA table_info("GrupoChat")');
+    if (columns.some((column) => column.name === "name")) {
+      await this.run('ALTER TABLE "GrupoChat" RENAME TO "GrupoChat_old"');
+      await this.run(`
+        CREATE TABLE "GrupoChat" (
+          id TEXT PRIMARY KEY,
+          group_data TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await this.run(`
+        INSERT INTO "GrupoChat" (id, group_data, created_at, updated_at)
+        SELECT id, group_data, created_at, updated_at
+        FROM "GrupoChat_old"
+      `);
+      await this.run('DROP TABLE "GrupoChat_old"');
+    }
   }
 
   async save(group, groupData) {
@@ -51,18 +69,17 @@ class GrupoChatModel {
     if (!id) throw new Error("Grupo sem identificador.");
 
     await this.run(`
-      INSERT INTO "GrupoChat" (id, name, group_data)
-      VALUES (?, ?, ?)
+      INSERT INTO "GrupoChat" (id, group_data)
+      VALUES (?, ?)
       ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
         group_data = excluded.group_data,
         updated_at = CURRENT_TIMESTAMP
-    `, [id, group.name || "Sem nome", JSON.stringify(groupData)]);
+    `, [id, JSON.stringify(groupData)]);
   }
 
   async getIds() {
     await this.ready;
-    const rows = await this.all('SELECT id FROM "GrupoChat" ORDER BY name ASC');
+    const rows = await this.all('SELECT id FROM "GrupoChat" ORDER BY id ASC');
     return rows.map((row) => row.id);
   }
 

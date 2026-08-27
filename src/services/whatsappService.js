@@ -93,7 +93,9 @@ class WhatsappService {
       console.log("# Mensagem enviada detectada:",  message.body);
 
       const command = message.body ? message.body.trim().toLowerCase() : "";
-      if (command === "configurarchatbot" || command === "/configurarchatbot") {
+      if (command === "configurarchatbot") {
+        console.log("🔧 Comando 'configurarchatbot' recebido.");
+        console.log("Dados da mensagem:", message);
         await this.registerGroup(message);
         return;
       }
@@ -196,17 +198,29 @@ class WhatsappService {
       return;
     }
 
-    const group = await this.client.getChatById(chatId);
-    if (!group || !group.isGroup) {
-      console.log("ℹ️ Comando ignorado: a conversa não é um grupo.");
-      return;
+    const group = await this.getGroupById(chatId);
+    const groupData = {
+      ...group,
+      registeredFromMessage: this.serializeSafely(
+        typeof message.serialize === "function" ? message.serialize() : message,
+      ),
+    };
+    await this.grupoChatModel.save(group, this.serializeSafely(groupData));
+    console.log(`✅ Grupo cadastrado para o ChatBot: ${group.id}`);
+  }
+
+  async getGroupById(chatId) {
+    try {
+      const group = await this.client.getChatById(chatId);
+      if (group && group.isGroup) return group;
+    } catch (error) {
+      console.warn("⚠️ Não foi possível obter os dados do grupo pelo ID:", error.message);
     }
 
-    const groupData = typeof group.serialize === "function"
-      ? group.serialize()
-      : group;
-    await this.grupoChatModel.save(group, this.serializeSafely(groupData));
-    console.log(`✅ Grupo cadastrado para o ChatBot: ${group.name || group.id}`);
+    return {
+      id: chatId,
+      isGroup: true,
+    };
   }
 
   getMessageChatId(message) {
