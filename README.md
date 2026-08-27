@@ -18,6 +18,8 @@ node chatbot.js
 
 Abra `http://localhost:3000/conectar` no navegador para visualizar o QR Code. O mesmo código continua sendo exibido no terminal. Para usar outra porta, defina a variável `PORT` antes de iniciar o bot.
 
+Após a primeira leitura do QR Code, a sessão é salva localmente em `.wwebjs_auth` e será reutilizada nas próximas inicializações. Se a sessão expirar ou não puder ser restaurada, o bot exibirá um novo QR Code para estabelecer a conexão novamente. Não remova esse diretório se quiser manter a sessão.
+
 Para enviar uma mensagem pela API, o WhatsApp precisa estar conectado:
 
 `/mensagem` não deve ser aberto diretamente no navegador, pois o navegador faz uma requisição `GET`. Use uma ferramenta que permita enviar `POST`, como `curl`, Postman ou Insomnia.

@@ -1,7 +1,6 @@
 const qrcodeTerminal = require("qrcode-terminal");
 const qrcodeImage = require("qrcode");
 const { Client, LocalAuth } = require("whatsapp-web.js");
-const fs = require("fs");
 const path = require("path");
 const { formatDate, formatDuration } = require("../utils/formatters");
 
@@ -12,7 +11,9 @@ class WhatsappService {
     this.grupoChatModel = grupoChatModel;
     this.connectionStart = null;
     this.client = new Client({
-      authStrategy: new LocalAuth(),
+      authStrategy: new LocalAuth({
+        dataPath: path.join(__dirname, "../../.wwebjs_auth"),
+      }),
       webVersionCache: {
           type: 'remote',
           remotePath: 'https://githubusercontent.com',
@@ -38,18 +39,6 @@ class WhatsappService {
     this.registerEvents();
   }
 
-  clearAuthCache() {
-    const authPath = path.join(__dirname, "../../.wwebjs_auth");
-    if (!fs.existsSync(authPath)) return;
-
-    try {
-      fs.rmSync(authPath, { recursive: true, force: true });
-      console.log("🧹 Cache de autenticação anterior removido.");
-    } catch (error) {
-      console.error("⚠️ Erro ao remover cache:", error.message);
-    }
-  }
-
   registerEvents() {
     this.client.on("qr", async (qr) => {
       console.clear();
@@ -71,6 +60,12 @@ class WhatsappService {
       console.log("✅ Tudo certo! WhatsApp conectado.");
       console.log("🔌 Conexão iniciada em:", formatDate(this.connectionStart));
       console.log("⏱️ Contando tempo conectado...");
+    });
+
+    this.client.on("auth_failure", (message) => {
+      this.connectionModel.setDisconnected();
+      console.error("❌ Falha ao restaurar a autenticação:", message);
+      console.log("📲 Será necessário escanear um novo QR Code.");
     });
 
     this.client.on("disconnected", (reason) => {
@@ -266,7 +261,6 @@ class WhatsappService {
   }
 
   async start() {
-    this.clearAuthCache();
     try {
       await this.client.initialize();
     } catch (error) {
