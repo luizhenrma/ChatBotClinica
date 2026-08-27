@@ -14,22 +14,18 @@ class WhatsappService {
       authStrategy: new LocalAuth({
         dataPath: path.join(__dirname, "../../.wwebjs_auth"),
       }),
-      webVersionCache: {
-          type: 'remote',
-          remotePath: 'https://githubusercontent.com',
-      },
       puppeteer: {
-          headless: true,
-          args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--no-first-run',
-              '--no-zygote',
-              '--single-process',       // Força o Chrome a não abrir várias abas em background
-              '--disable-extensions',
-              '--js-flags="--max-old-space-size=150"' // Limita o uso de memória do motor JavaScript do Chrome
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',       // Força o Chrome a não abrir várias abas em background
+            '--disable-extensions',
+            '--js-flags="--max-old-space-size=150"' // Limita o uso de memória do motor JavaScript do Chrome
           ]
       },
       takeoverOnConflict: true,
