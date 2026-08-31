@@ -278,13 +278,21 @@ class WhatsappService {
 
   async resolveRecipient(recipient) {
     const value = recipient.trim();
-    const phoneNumber = value.endsWith("@c.us")
-      ? value.slice(0, -5)
-      : value;
-    const normalizedNumber = phoneNumber.replace(/\D/g, "");
+
+    if (value.endsWith("@g.us") || value.endsWith("@c.us")) {
+      return value;
+    }
+
+    if (value.includes("@")) {
+      const error = new Error("Destinatário inválido. Use um número WhatsApp ou um ID de grupo no formato ...@g.us.");
+      error.code = "INVALID_RECIPIENT";
+      throw error;
+    }
+
+    const normalizedNumber = value.replace(/\D/g, "");
 
     if (!/^\d{8,15}$/.test(normalizedNumber)) {
-      const error = new Error("Destinatário inválido. Informe o número com DDI, somente números.");
+      const error = new Error("Destinatário inválido. Informe o número com DDI, somente números, ou o ID do grupo com @g.us.");
       error.code = "INVALID_RECIPIENT";
       throw error;
     }

@@ -30,7 +30,18 @@ curl -X POST http://localhost:3000/mensagem \
 	-d '{"destinatario":"556191018101","mensagem":"Chego em casa umas 12:30"}'
 ```
 
-O campo `destinatario` deve conter o número com código do país, somente números. O sistema normaliza o número e confirma se ele possui uma conta WhatsApp antes do envio.
+O campo `destinatario` pode ser:
+
+- um número de celular com código do país, somente números; ou
+- o ID do grupo salvo no banco, no formato `1234567890@g.us` (ex.: o valor da coluna `id` da tabela `GrupoChat`).
+
+Exemplo para grupo:
+
+```bash
+curl -X POST http://localhost:3000/mensagem \
+  -H "Content-Type: application/json" \
+  -d '{"destinatario":"120363123456789@g.us","mensagem":"Olá, grupo!"}'
+```
 
 Mensagens recebidas no grupo `ChatBotClinica` são armazenadas em `data/messages.sqlite` com status `pendente`. Para consultar as operações pendentes, use:
 
