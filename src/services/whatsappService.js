@@ -1,3 +1,4 @@
+const http = require("http");
 const qrcodeTerminal = require("qrcode-terminal");
 const qrcodeImage = require("qrcode");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -106,6 +107,11 @@ class WhatsappService {
         return;
       }
 
+      if (message && message.body && message.body.includes("🤖")) {
+        console.log("🤖 Mensagem do bot detectada no grupo registrado. Ignorando registro pendente.");
+        return;
+      }
+
       console.log("📤 Mensagem enviada em grupo registrado detectada.");
       await this.saveGroupMessage(message);
       console.log("✅ Mensagem enviada salva com status pendente.");
@@ -179,16 +185,87 @@ class WhatsappService {
     }
   }
 
+  getMessageRecordId(message) {
+    if (message && message.id && (message.id._serialized || message.id.id)) {
+      return message.id._serialized || message.id.id;
+    }
+
+    return `${message && message.from ? message.from : "unknown"}-${message && message.timestamp ? message.timestamp : Date.now()}`;
+  }
+
   async saveGroupMessage(message) {
     const messageData = typeof message.serialize === "function"
       ? message.serialize()
       : message;
 
+    const recordId = this.getMessageRecordId(message);
     await this.messageModel.save(
       message,
       "ChatBotClinica",
       this.serializeSafely(messageData),
     );
+
+    const savedMessage = await this.messageModel.findById(recordId);
+    if (!savedMessage) {
+      console.warn("⚠️ Mensagem salva, mas o registro do banco não foi encontrado para webhook.");
+      return;
+    }
+
+    await this.notifyWebhook(savedMessage);
+  }
+
+  async notifyWebhook(record) {
+    const payload = {
+      author: record.author || null,
+      body: record.body || null,
+      timestamp: record.timestamp || null,
+      message_type: record.message_type || null,
+      has_media: Number(record.has_media || 0),
+      message_data: record.message_data || null,
+      status: record.status || "pendente",
+      created_at: record.created_at || null,
+    };
+
+    const body = JSON.stringify(payload);
+    const requestOptions = {
+      hostname: "localhost",
+      port: 5678,
+      path: "/webhook-test/processa_operacao",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      },
+    };
+
+    return new Promise((resolve) => {
+      const req = http.request(requestOptions, (res) => {
+        let responseBody = "";
+
+        res.on("data", (chunk) => {
+          responseBody += chunk.toString();
+        });
+
+        res.on("end", () => {
+          if (res.statusCode >= 400) {
+            console.warn(`⚠️ Webhook processa_operacao respondeu com status ${res.statusCode}: ${responseBody}`);
+            resolve({ statusCode: res.statusCode, body: responseBody, ok: false });
+            return;
+          }
+
+          console.log(`✅ Webhook enviado para processa_operacao (${res.statusCode}).`);
+          resolve({ statusCode: res.statusCode, body: responseBody, ok: true });
+        });
+      });
+
+      req.on("error", (error) => {
+        console.warn("⚠️ Não foi possível enviar o webhook processa_operacao:", error.message);
+        resolve({ ok: false, error: error.message });
+      });
+
+      req.write(body);
+      req.end();
+    });
   }
 
   async registerGroup(message) {

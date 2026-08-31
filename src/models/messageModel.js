@@ -74,6 +74,12 @@ class MessageModel {
     ]);
   }
 
+  async findById(id) {
+    await this.ready;
+    const rows = await this.all("SELECT * FROM messages WHERE id = ? LIMIT 1", [id]);
+    return rows[0] || null;
+  }
+
   async getPendingAndMarkAsSent() {
     await this.ready;
     await this.run("BEGIN TRANSACTION");
