@@ -230,7 +230,7 @@ class WhatsappService {
     const requestOptions = {
       hostname: "localhost",
       port: 5678,
-      path: "/webhook-test/processa_operacao",
+      path: "/webhook/processa_operacao",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -293,7 +293,6 @@ class WhatsappService {
 Utilize esse grupo para enviar operações de gestão de atendimentos.
 
 *💡 Dicas:*
-Para registrar pagamentos e atendimentos, envie mensagens como:
 
 💰 Para registrar créditos/pagamentos:
 _Maria pagou 2 atendimentos_
@@ -303,7 +302,7 @@ _João comprou um pacote_
 _Atendi Maria_
 _João foi atendido_
 
-⚠️ Evite informar apenas o valor do pagamento, como Maria pagou R$ 250. Informe sempre a quantidade de sessões ou o pacote.`;
+⚠️ Evite informar apenas o valor do pagamento, como _Maria pagou R$ 250._ Informe sempre a quantidade de sessões ou o pacote.`;
 
     try {
       await this.client.sendMessage(chatId, registrationMessage);
@@ -373,6 +372,23 @@ _João foi atendido_
       const error = new Error("WhatsApp não está conectado.");
       error.code = "WHATSAPP_NOT_CONNECTED";
       throw error;
+    }
+
+    if (String(recipient || "").trim().toLowerCase() === "admin") {
+      const groupIds = await this.grupoChatModel.getIds();
+      if (!groupIds.length) {
+        const error = new Error("Nenhum grupo registrado encontrado para envio em massa.");
+        error.code = "INVALID_RECIPIENT";
+        throw error;
+      }
+
+      const results = [];
+      for (const groupId of groupIds) {
+        await this.client.sendMessage(groupId, message);
+        results.push(groupId);
+      }
+
+      return { broadcast: true, recipients: results };
     }
 
     const recipientId = await this.resolveRecipient(recipient);
