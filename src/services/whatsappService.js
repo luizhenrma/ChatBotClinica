@@ -285,6 +285,32 @@ class WhatsappService {
     };
     await this.grupoChatModel.save(group, this.serializeSafely(groupData));
     console.log(`✅ Grupo cadastrado para o ChatBot: ${group.id}`);
+
+    const registrationMessage = `🤖💬✅
+
+*Grupo registrado com sucesso.*
+
+Utilize esse grupo para enviar operações de gestão de atendimentos.
+
+*💡 Dicas:*
+Para registrar pagamentos e atendimentos, envie mensagens como:
+
+💰 Para registrar créditos/pagamentos:
+_Maria pagou 2 atendimentos_
+_João comprou um pacote_
+
+📅 Para registrar um atendimento:
+_Atendi Maria_
+_João foi atendido_
+
+⚠️ Evite informar apenas o valor do pagamento, como Maria pagou R$ 250. Informe sempre a quantidade de sessões ou o pacote.`;
+
+    try {
+      await this.client.sendMessage(chatId, registrationMessage);
+      console.log(`✅ Mensagem de confirmação enviada para o grupo registrado: ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Não foi possível enviar mensagem de confirmação para o grupo ${chatId}:`, error.message);
+    }
   }
 
   async getGroupById(chatId) {
@@ -354,14 +380,15 @@ class WhatsappService {
   }
 
   async resolveRecipient(recipient) {
-    const value = recipient.trim();
+    const value = String(recipient || "").trim();
+    const normalizedDomain = value.toLowerCase();
 
-    if (value.endsWith("@g.us") || value.endsWith("@c.us")) {
+    if (normalizedDomain.endsWith("@g.us") || normalizedDomain.endsWith("@c.us") || normalizedDomain.endsWith("@lid")) {
       return value;
     }
 
     if (value.includes("@")) {
-      const error = new Error("Destinatário inválido. Use um número WhatsApp ou um ID de grupo no formato ...@g.us.");
+      const error = new Error("Destinatário inválido. Use um número WhatsApp, um ID de grupo @g.us ou um contato com @lid/@c.us.");
       error.code = "INVALID_RECIPIENT";
       throw error;
     }
@@ -374,7 +401,21 @@ class WhatsappService {
       throw error;
     }
 
-    return `${normalizedNumber}@c.us`;
+    const fallbackPhoneId = `${normalizedNumber}@c.us`;
+
+    try {
+      const response = await this.client.getContactLidAndPhone([fallbackPhoneId]);
+      const contact = Array.isArray(response) ? response[0] : null;
+      const preferredId = contact && (contact.lid || contact.pn || fallbackPhoneId);
+
+      if (preferredId && preferredId.includes("@")) {
+        return preferredId;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Não foi possível resolver LID para ${fallbackPhoneId}:`, error.message);
+    }
+
+    return fallbackPhoneId;
   }
 }
 
